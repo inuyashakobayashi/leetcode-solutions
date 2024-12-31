@@ -2,8 +2,21 @@
 LeetCode Problem: Counter
 Status: Accepted
 Language: javascript
-Submission Date: 2024-12-31 16:46:05
+Runtime: 59ms
+Memory: 41.8MB
+Submission Date: 2024-12-31 17:31:40
 */
 
-// Your solution goes here
-// Copy your solution from LeetCode and paste it here
+/**
+ * @param {number} n
+ * @return {Function} counter
+ */
+var createCounter = function(n) {
+    // Your Counter solution here
+};
+
+/*
+Hinweis: Dies ist eine Template-Datei. 
+Bitte fügen Sie Ihre eigene Lösung von LeetCode hier ein.
+Sie können die Lösung direkt von LeetCode kopieren und hier einfügen.
+*/

@@ -2,8 +2,20 @@
 LeetCode Problem: Sleep
 Status: Accepted
 Language: javascript
-Submission Date: 2024-12-31 16:46:05
+Runtime: 43ms
+Memory: 41.5MB
+Submission Date: 2024-12-31 17:31:40
 */
 
-// Your solution goes here
-// Copy your solution from LeetCode and paste it here
+/**
+ * @param {number} millis
+ */
+async function sleep(millis) {
+    // Your Sleep solution here
+}
+
+/*
+Hinweis: Dies ist eine Template-Datei. 
+Bitte fügen Sie Ihre eigene Lösung von LeetCode hier ein.
+Sie können die Lösung direkt von LeetCode kopieren und hier einfügen.
+*/

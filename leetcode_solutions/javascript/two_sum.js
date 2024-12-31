@@ -2,8 +2,22 @@
 LeetCode Problem: Two Sum
 Status: Accepted
 Language: javascript
-Submission Date: 2024-12-31 16:46:05
+Runtime: 0ms
+Memory: 42MB
+Submission Date: 2024-12-31 17:31:40
 */
 
-// Your solution goes here
-// Copy your solution from LeetCode and paste it here
+/**
+ * @param {number[]} nums
+ * @param {number} target
+ * @return {number[]}
+ */
+var twoSum = function(nums, target) {
+    // Your Two Sum solution here
+};
+
+/*
+Hinweis: Dies ist eine Template-Datei. 
+Bitte fügen Sie Ihre eigene Lösung von LeetCode hier ein.
+Sie können die Lösung direkt von LeetCode kopieren und hier einfügen.
+*/
