@@ -3,65 +3,34 @@ name: Debug LeetCode Sync
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: "0 0 * * *"
+  workflow_dispatch: # Erlaubt manuelles Auslösen
 
 jobs:
-  sync:
+  debug:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: "3.x"
-
-      - name: Check Environment
+      - name: Debug Environment
         run: |
-          python --version
-          pip --version
-          echo "Working directory: $(pwd)"
-          ls -la
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests
-
-      - name: Check LEETCODE_USERNAME
-        run: |
-          if [ -z "$LEETCODE_USERNAME" ]; then
-            echo "LEETCODE_USERNAME is not set!"
-            exit 1
+          echo "Verfügbare Umgebungsvariablen:"
+          env
+          echo "---"
+          echo "Secret Test (ohne Wert zu zeigen):"
+          if [ -n "$LEETCODE_USERNAME" ]; then
+            echo "LEETCODE_USERNAME ist gesetzt"
           else
-            echo "LEETCODE_USERNAME is set (value hidden)"
+            echo "LEETCODE_USERNAME ist NICHT gesetzt"
           fi
         env:
           LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
 
-      - name: Sync LeetCode submissions
-        env:
-          LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Show Secrets Context
         run: |
-          python sync_leetcode.py
-
-      - name: Show directory content after sync
-        run: |
-          echo "Directory content after sync:"
-          ls -la
-          if [ -d "stats" ]; then
-            echo "Content of stats directory:"
-            ls -la stats/
+          echo "Prüfe, ob Secret existiert (ohne Wert zu zeigen):"
+          if [ "${{ secrets.LEETCODE_USERNAME != '' }}" == "true" ]; then
+            echo "Secret existiert im Kontext"
+          else
+            echo "Secret existiert NICHT im Kontext"
           fi
-
-      - name: Commit and push if there are changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add -A
-          git diff --staged --quiet || (git commit -m "Update LeetCode solutions" && git push)
