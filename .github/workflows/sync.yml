@@ -10,16 +10,15 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
+          fetch-depth: 1
           token: ${{ secrets.PAT }}
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: "3.x"
 
@@ -36,8 +35,12 @@ jobs:
           python sync_leetcode.py
 
       - name: Commit and push changes
+        env:
+          PAT: ${{ secrets.PAT }}
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git remote set-url origin https://x-access-token:${PAT}@github.com/${{ github.repository }}
           git add leetcode_solutions/
-          git diff --staged --quiet || (git commit -m "Update LeetCode solutions [skip ci]" && git push)
+          git commit -m "Update LeetCode solutions" || echo "No changes to commit"
+          git push
