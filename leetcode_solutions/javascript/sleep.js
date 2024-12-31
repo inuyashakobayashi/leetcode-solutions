@@ -4,7 +4,7 @@ Status: Accepted
 Language: javascript
 Runtime: 43ms
 Memory: 41.5MB
-Submission Date: 2024-12-31 17:38:45
+Submission Date: 2024-12-31 17:38:57
 */
 
 /**
