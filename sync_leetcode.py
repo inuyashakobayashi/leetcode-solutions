@@ -3,29 +3,23 @@ import json
 import requests
 from datetime import datetime
 
-def fetch_leetcode_submissions(username):
-    print(f"Fetching submissions for {username}")
-    
+def fetch_solution(title_slug):
+    """Holt die Lösung für ein spezifisches Problem"""
     url = "https://leetcode.com/graphql"
     
-    # Vereinfachter GraphQL Query mit submissionList
     query = """
-    query userProfile($username: String!) {
-        allQuestionsCount {
-            difficulty
-            count
-        }
-        matchedUser(username: $username) {
-            username
-            submitStats: submitStatsGlobal {
-                acSubmissionNum {
-                    difficulty
-                    count
-                }
+    query questionData($titleSlug: String!) {
+        question(titleSlug: $titleSlug) {
+            questionId
+            questionFrontendId
+            codeSnippets {
+                lang
+                code
             }
-            profile {
-                reputation
-                ranking
+            submissionList {
+                statusDisplay
+                lang
+                code
             }
         }
     }
@@ -33,7 +27,49 @@ def fetch_leetcode_submissions(username):
     
     headers = {
         'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0',
+        'Referer': f'https://leetcode.com/problems/{title_slug}',
+        'Cookie': os.environ.get('LEETCODE_COOKIE', '')  # Benötigt für Authentifizierung
+    }
+    
+    payload = {
+        'query': query,
+        'variables': {'titleSlug': title_slug}
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        print(f"Solution fetch response: {response.status_code}")
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f"Error fetching solution: {str(e)}")
+    return None
+
+def fetch_recent_submissions(username):
+    """Holt die letzten Submissions eines Benutzers"""
+    url = "https://leetcode.com/graphql"
+    
+    query = """
+    query recentSubmissions($username: String!) {
+        recentSubmissionList(username: $username) {
+            id
+            title
+            titleSlug
+            timestamp
+            statusDisplay
+            lang
+            code
+            runtime
+            memory
+        }
+    }
+    """
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0',
+        'Cookie': os.environ.get('LEETCODE_COOKIE', '')  # Benötigt für Authentifizierung
     }
     
     payload = {
@@ -42,79 +78,54 @@ def fetch_leetcode_submissions(username):
     }
     
     try:
-        print("Sending request to LeetCode API...")
+        print("Fetching recent submissions...")
         response = requests.post(url, json=payload, headers=headers)
-        print(f"Response status: {response.status_code}")
-        print(f"Response content: {response.text[:500]}...")
+        print(f"Submissions response: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
             if 'errors' in data:
                 print(f"GraphQL errors: {data['errors']}")
                 return []
-                
-            user_data = data.get('data', {})
-            print(f"Successfully fetched user data: {json.dumps(user_data, indent=2)}")
-            return True
-            
+            return data.get('data', {}).get('recentSubmissionList', [])
     except Exception as e:
-        print(f"Error fetching submissions: {str(e)}")
-        return False
+        print(f"Error: {str(e)}")
+    return []
 
-def create_submission_files(base_dir):
-    """Erstellt Beispieldateien für die bekannten Submissions"""
-    submissions = [
-        {
-            'title': 'Two Sum',
-            'lang': 'javascript',
-            'timestamp': datetime.now().timestamp(),
-            'statusDisplay': 'Accepted'
-        },
-        {
-            'title': 'Sleep',
-            'lang': 'javascript',
-            'timestamp': datetime.now().timestamp(),
-            'statusDisplay': 'Accepted'
-        },
-        {
-            'title': 'Counter',
-            'lang': 'javascript',
-            'timestamp': datetime.now().timestamp(),
-            'statusDisplay': 'Accepted'
-        }
-    ]
+def save_submission(submission, base_dir):
+    """Speichert eine Submission in einer Datei"""
+    lang_dir = os.path.join(base_dir, submission['lang'].lower())
+    os.makedirs(lang_dir, exist_ok=True)
     
-    saved_count = 0
-    for submission in submissions:
-        # Erstelle Ordner für die Programmiersprache
-        lang_dir = os.path.join(base_dir, submission['lang'].lower())
-        os.makedirs(lang_dir, exist_ok=True)
-        
-        # Bereite Dateinamen vor
-        problem_title = submission['title'].replace(' ', '_').lower()
-        filename = f"{problem_title}.js"
-        filepath = os.path.join(lang_dir, filename)
-        
-        # Template für die Lösung
-        template = f"""/*
+    problem_title = submission['title'].replace(' ', '_').lower()
+    file_extension = {
+        'python': '.py',
+        'python3': '.py',
+        'java': '.java',
+        'cpp': '.cpp',
+        'javascript': '.js',
+        'typescript': '.ts'
+    }.get(submission['lang'].lower(), '.txt')
+    
+    filename = f"{problem_title}{file_extension}"
+    filepath = os.path.join(lang_dir, filename)
+    
+    content = f"""/*
 LeetCode Problem: {submission['title']}
 Status: {submission['statusDisplay']}
 Language: {submission['lang']}
+Runtime: {submission.get('runtime', 'N/A')}
+Memory: {submission.get('memory', 'N/A')}
 Submission Date: {datetime.fromtimestamp(submission['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}
 */
 
-// Your solution goes here
-// Copy your solution from LeetCode and paste it here
+{submission.get('code', '// Code nicht verfügbar - Bitte manuell aus LeetCode kopieren')}
 """
-        
-        # Speichere die Lösung
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(template)
-        
-        print(f"Saved: {filepath}")
-        saved_count += 1
     
-    return saved_count
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(content)
+    
+    return filepath
 
 def main():
     username = os.environ.get('LEETCODE_USERNAME')
@@ -124,32 +135,39 @@ def main():
     
     print("Starting LeetCode sync...")
     
-    # Erstelle Basis-Verzeichnis für Lösungen
+    # Erstelle Basis-Verzeichnis
     base_dir = 'leetcode_solutions'
     os.makedirs(base_dir, exist_ok=True)
     
-    # Versuche Benutzerdaten zu holen
-    success = fetch_leetcode_submissions(username)
+    # Hole Submissions
+    submissions = fetch_recent_submissions(username)
     
-    # Erstelle die Submission-Dateien
-    saved_count = create_submission_files(base_dir)
+    if not submissions:
+        print("No submissions found or error occurred")
+        return
     
-    print(f"Successfully created {saved_count} submission templates")
+    # Speichere jede Submission
+    saved_count = 0
+    for submission in submissions:
+        if submission['statusDisplay'] == 'Accepted':
+            filepath = save_submission(submission, base_dir)
+            print(f"Saved: {filepath}")
+            saved_count += 1
     
-    # Erstelle oder aktualisiere README.md
-    readme_path = os.path.join(base_dir, 'README.md')
-    with open(readme_path, 'w', encoding='utf-8') as f:
-        f.write(f"""# LeetCode Solutions
+    print(f"Successfully saved {saved_count} submissions")
+    
+    # Update README
+    with open(os.path.join(base_dir, 'README.md'), 'w', encoding='utf-8') as f:
+        f.write("""# LeetCode Solutions
 
 This repository contains my LeetCode solutions.
 
-## Solutions
-- Two Sum (JavaScript)
-- Sleep (JavaScript)
-- Counter (JavaScript)
-
-Note: Please copy your solutions from LeetCode into the respective files.
+## Recent Accepted Submissions
 """)
+        for submission in submissions:
+            if submission['statusDisplay'] == 'Accepted':
+                date = datetime.fromtimestamp(submission['timestamp']).strftime('%Y-%m-%d')
+                f.write(f"\n- {submission['title']} ({submission['lang']}) - {date}")
 
 if __name__ == "__main__":
     main()

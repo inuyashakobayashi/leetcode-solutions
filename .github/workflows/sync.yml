@@ -10,9 +10,13 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PAT }}
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -24,33 +28,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Debug Environment
-        run: |
-          echo "Python version:"
-          python --version
-          echo "Username is set:" 
-          if [ -n "$LEETCODE_USERNAME" ]; then echo "Yes"; else echo "No"; fi
-        env:
-          LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
-
       - name: Sync LeetCode submissions
         env:
           LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
+          LEETCODE_COOKIE: ${{ secrets.LEETCODE_COOKIE }}
         run: |
           python sync_leetcode.py
 
-      - name: Check for new files
+      - name: Commit and push changes
         run: |
-          echo "Current directory contents:"
-          ls -la
-          if [ -d "leetcode_solutions" ]; then
-            echo "LeetCode solutions directory contents:"
-            ls -R leetcode_solutions/
-          fi
-
-      - name: Commit changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git add leetcode_solutions/
           git diff --staged --quiet || (git commit -m "Update LeetCode solutions [skip ci]" && git push)
