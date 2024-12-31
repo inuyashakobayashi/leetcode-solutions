@@ -1,28 +1,68 @@
 import os
-import requests
 import json
+import requests
 from datetime import datetime
 
 def fetch_leetcode_submissions(username):
     print(f"Fetching submissions for {username}")
     
-    # LeetCode API endpoint für Recent Submissions
-    url = f"https://leetcode.com/api/submissions/{username}/"
+    # GraphQL API endpoint
+    url = "https://leetcode.com/graphql"
     
+    # GraphQL query für die neuesten Submissions
+    query = """
+    query recentSubmissionList($username: String!) {
+        recentSubmissionList(username: $username) {
+            title
+            timestamp
+            statusDisplay
+            lang
+            code
+            runtime
+            memory
+            id
+            notes
+            topicTags {
+                name
+            }
+        }
+    }
+    """
+    
+    # Headers mit mehr Browser-ähnlichen Informationen
     headers = {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Origin': 'https://leetcode.com',
+        'Referer': 'https://leetcode.com/',
+    }
+    
+    # Request Body
+    payload = {
+        'query': query,
+        'variables': {'username': username}
     }
     
     try:
-        response = requests.get(url, headers=headers)
+        print("Sending request to LeetCode API...")
+        response = requests.post(url, json=payload, headers=headers)
         print(f"Response status: {response.status_code}")
+        print(f"Response headers: {dict(response.headers)}")
         
         if response.status_code == 200:
-            return response.json().get('submissions_dump', [])
-        return []
+            data = response.json()
+            if 'errors' in data:
+                print(f"GraphQL errors: {data['errors']}")
+                return []
+            submissions = data.get('data', {}).get('recentSubmissionList', [])
+            print(f"Found {len(submissions)} submissions")
+            return submissions
+        else:
+            print(f"Response content: {response.text[:200]}...")  # Erste 200 Zeichen
+            return []
+            
     except Exception as e:
-        print(f"Error fetching submissions: {e}")
+        print(f"Error fetching submissions: {str(e)}")
         return []
 
 def save_submission(submission, base_dir):
@@ -45,10 +85,13 @@ def save_submission(submission, base_dir):
     filepath = os.path.join(lang_dir, filename)
     
     # Bereite Inhalt vor
-    content = f"""# {submission['title']}
-# Difficulty: {submission.get('difficulty', 'Unknown')}
-# Status: {submission.get('status_display', 'Unknown')}
-# Submission Date: {datetime.fromtimestamp(submission['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}
+    content = f"""/*
+Problem: {submission['title']}
+Status: {submission['statusDisplay']}
+Runtime: {submission.get('runtime', 'N/A')}
+Memory: {submission.get('memory', 'N/A')}
+Submission Date: {datetime.fromtimestamp(submission['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}
+*/
 
 {submission['code']}
 """
@@ -75,15 +118,13 @@ def main():
     submissions = fetch_leetcode_submissions(username)
     
     if not submissions:
-        print("No submissions found")
+        print("No submissions found or error occurred")
         return
-    
-    print(f"Found {len(submissions)} submissions")
     
     # Speichere nur erfolgreiche Submissions
     saved_count = 0
     for submission in submissions:
-        if submission.get('status_display') == 'Accepted':
+        if submission.get('statusDisplay') == 'Accepted':
             filepath = save_submission(submission, base_dir)
             print(f"Saved: {filepath}")
             saved_count += 1

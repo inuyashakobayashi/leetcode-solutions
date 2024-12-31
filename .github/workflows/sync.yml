@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 0 * * *" # Täglich um Mitternacht
-  workflow_dispatch: # Erlaubt manuelles Auslösen
+    - cron: "0 0 * * *"
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -24,11 +24,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
+      - name: Debug Environment
+        run: |
+          echo "Python version:"
+          python --version
+          echo "Username is set:" 
+          if [ -n "$LEETCODE_USERNAME" ]; then echo "Yes"; else echo "No"; fi
+        env:
+          LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
+
       - name: Sync LeetCode submissions
         env:
           LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
         run: |
           python sync_leetcode.py
+
+      - name: Check for new files
+        run: |
+          echo "Current directory contents:"
+          ls -la
+          if [ -d "leetcode_solutions" ]; then
+            echo "LeetCode solutions directory contents:"
+            ls -R leetcode_solutions/
+          fi
 
       - name: Commit changes
         run: |
