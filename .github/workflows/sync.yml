@@ -1,10 +1,10 @@
-name: Sync LeetCode solutions
+name: Debug LeetCode Sync
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 0 * * *" # Täglich um Mitternacht
+    - cron: "0 0 * * *"
 
 jobs:
   sync:
@@ -12,16 +12,36 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: "3.x"
 
+      - name: Check Environment
+        run: |
+          python --version
+          pip --version
+          echo "Working directory: $(pwd)"
+          ls -la
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
+
+      - name: Check LEETCODE_USERNAME
+        run: |
+          if [ -z "$LEETCODE_USERNAME" ]; then
+            echo "LEETCODE_USERNAME is not set!"
+            exit 1
+          else
+            echo "LEETCODE_USERNAME is set (value hidden)"
+          fi
+        env:
+          LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
 
       - name: Sync LeetCode submissions
         env:
@@ -29,3 +49,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python sync_leetcode.py
+
+      - name: Show directory content after sync
+        run: |
+          echo "Directory content after sync:"
+          ls -la
+          if [ -d "stats" ]; then
+            echo "Content of stats directory:"
+            ls -la stats/
+          fi
+
+      - name: Commit and push if there are changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          git diff --staged --quiet || (git commit -m "Update LeetCode solutions" && git push)
