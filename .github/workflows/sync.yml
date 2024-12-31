@@ -1,36 +1,38 @@
-name: Debug LeetCode Sync
+name: Sync LeetCode Solutions
 
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "0 0 * * *" # Täglich um Mitternacht
   workflow_dispatch: # Erlaubt manuelles Auslösen
 
 jobs:
-  debug:
+  sync:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
 
-      - name: Debug Environment
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
         run: |
-          echo "Verfügbare Umgebungsvariablen:"
-          env
-          echo "---"
-          echo "Secret Test (ohne Wert zu zeigen):"
-          if [ -n "$LEETCODE_USERNAME" ]; then
-            echo "LEETCODE_USERNAME ist gesetzt"
-          else
-            echo "LEETCODE_USERNAME ist NICHT gesetzt"
-          fi
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Sync LeetCode submissions
         env:
           LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
-
-      - name: Show Secrets Context
         run: |
-          echo "Prüfe, ob Secret existiert (ohne Wert zu zeigen):"
-          if [ "${{ secrets.LEETCODE_USERNAME != '' }}" == "true" ]; then
-            echo "Secret existiert im Kontext"
-          else
-            echo "Secret existiert NICHT im Kontext"
-          fi
+          python sync_leetcode.py
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add leetcode_solutions/
+          git diff --staged --quiet || (git commit -m "Update LeetCode solutions [skip ci]" && git push)
