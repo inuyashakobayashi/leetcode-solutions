@@ -3,26 +3,21 @@ import json
 import requests
 from datetime import datetime
 
-def fetch_recent_submissions(username):
-    """Holt die letzten Submissions eines Benutzers"""
+def fetch_submission_details(titleSlug):
+    """Holt Details einer spezifischen Submission"""
     url = "https://leetcode.com/graphql"
     
     query = """
-    query userProblemsSolved($username: String!) {
-        allQuestionsCount {
-            difficulty
-            count
-        }
-        matchedUser(username: $username) {
-            problemsSolvedBeatsStats {
-                difficulty
-                percentage
-            }
-            submitStatsGlobal {
-                acSubmissionNum {
-                    difficulty
-                    count
-                }
+    query submissionDetails($titleSlug: String!) {
+        question(titleSlug: $titleSlug) {
+            submissions {
+                id
+                code
+                runtime
+                memory
+                statusDisplay
+                lang
+                timestamp
             }
         }
     }
@@ -31,72 +26,47 @@ def fetch_recent_submissions(username):
     headers = {
         'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0',
+        'Cookie': os.environ.get('LEETCODE_COOKIE', ''),  # Wichtig für Authentifizierung
+        'Referer': f'https://leetcode.com/problems/{titleSlug}/'
     }
     
     payload = {
         'query': query,
-        'variables': {'username': username}
+        'variables': {'titleSlug': titleSlug}
     }
     
     try:
-        print("Fetching user statistics...")
         response = requests.post(url, json=payload, headers=headers)
-        response.encoding = 'utf-8'  # Explizit UTF-8 setzen
-        print(f"Response status: {response.status_code}")
+        response.encoding = 'utf-8'
+        print(f"Submission details response status: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
-            
-            # Hole die bekannten Lösungen
-            solutions = [
-                {
-                    'title': 'Two Sum',
-                    'code': """/**
- * @param {number[]} nums
- * @param {number} target
- * @return {number[]}
- */
-var twoSum = function(nums, target) {
-    // Your Two Sum solution here
-};""",
-                    'lang': 'javascript',
-                    'timestamp': datetime.now().timestamp(),
-                    'statusDisplay': 'Accepted',
-                    'runtime': '0ms',
-                    'memory': '42MB'
-                },
-                {
-                    'title': 'Sleep',
-                    'code': """/**
- * @param {number} millis
- */
-async function sleep(millis) {
-    // Your Sleep solution here
-}""",
-                    'lang': 'javascript',
-                    'timestamp': datetime.now().timestamp(),
-                    'statusDisplay': 'Accepted',
-                    'runtime': '43ms',
-                    'memory': '41.5MB'
-                },
-                {
-                    'title': 'Counter',
-                    'code': """/**
- * @param {number} n
- * @return {Function} counter
- */
-var createCounter = function(n) {
-    // Your Counter solution here
-};""",
-                    'lang': 'javascript',
-                    'timestamp': datetime.now().timestamp(),
-                    'statusDisplay': 'Accepted',
-                    'runtime': '59ms',
-                    'memory': '41.8MB'
-                }
-            ]
-            
-            return solutions
+            return data.get('data', {}).get('question', {}).get('submissions', [])
+    except Exception as e:
+        print(f"Error fetching submission details: {str(e)}")
+    return []
+
+def fetch_recent_submissions(username):
+    """Holt die letzten Submissions eines Benutzers"""
+    url = "https://leetcode.com/api/submissions/" + username
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0',
+        'Cookie': os.environ.get('LEETCODE_COOKIE', ''),  # Wichtig für Authentifizierung
+    }
+    
+    try:
+        print(f"Fetching submissions for {username}...")
+        response = requests.get(url, headers=headers)
+        response.encoding = 'utf-8'
+        print(f"Response status: {response.status_code}")
+        
+        if response.status_code == 200:
+            submissions_data = response.json()
+            submissions = submissions_data.get('submissions_dump', [])
+            print(f"Found {len(submissions)} submissions")
+            return submissions
             
     except Exception as e:
         print(f"Error: {str(e)}")
@@ -104,31 +74,37 @@ var createCounter = function(n) {
 
 def save_submission(submission, base_dir):
     """Speichert eine Submission in einer Datei"""
+    # Erstelle Ordner für die Programmiersprache
     lang_dir = os.path.join(base_dir, submission['lang'].lower())
     os.makedirs(lang_dir, exist_ok=True)
     
+    # Bereite Dateinamen vor
     problem_title = submission['title'].replace(' ', '_').lower()
-    filename = f"{problem_title}.js"
+    file_extension = {
+        'python': '.py',
+        'python3': '.py',
+        'java': '.java',
+        'cpp': '.cpp',
+        'javascript': '.js'
+    }.get(submission['lang'].lower(), '.txt')
+    
+    filename = f"{problem_title}{file_extension}"
     filepath = os.path.join(lang_dir, filename)
     
+    # Bereite Inhalt vor
     content = f"""/*
 LeetCode Problem: {submission['title']}
-Status: {submission['statusDisplay']}
+Status: {submission['status_display']}
 Language: {submission['lang']}
 Runtime: {submission.get('runtime', 'N/A')}
-Memory: {submission.get('memory', 'N/A')}
+Memory Usage: {submission.get('memory', 'N/A')}
 Submission Date: {datetime.fromtimestamp(submission['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}
 */
 
 {submission['code']}
-
-/*
-Hinweis: Dies ist eine Template-Datei. 
-Bitte fügen Sie Ihre eigene Lösung von LeetCode hier ein.
-Sie können die Lösung direkt von LeetCode kopieren und hier einfügen.
-*/
 """
     
+    # Speichere die Lösung
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
     
@@ -136,8 +112,10 @@ Sie können die Lösung direkt von LeetCode kopieren und hier einfügen.
 
 def main():
     username = os.environ.get('LEETCODE_USERNAME')
-    if not username:
-        print("Error: LEETCODE_USERNAME not set")
+    leetcode_cookie = os.environ.get('LEETCODE_COOKIE')
+    
+    if not username or not leetcode_cookie:
+        print("Error: LEETCODE_USERNAME or LEETCODE_COOKIE not set")
         return
     
     print("Starting LeetCode sync...")
@@ -153,12 +131,13 @@ def main():
         print("No submissions found or error occurred")
         return
     
-    # Speichere jede Submission
+    # Speichere nur erfolgreiche Submissions
     saved_count = 0
     for submission in submissions:
-        filepath = save_submission(submission, base_dir)
-        print(f"Saved: {filepath}")
-        saved_count += 1
+        if submission.get('status_display') == 'Accepted':
+            filepath = save_submission(submission, base_dir)
+            print(f"Saved: {filepath}")
+            saved_count += 1
     
     print(f"Successfully saved {saved_count} submissions")
     
@@ -168,13 +147,15 @@ def main():
 
 This repository contains my LeetCode solutions.
 
-## Current Solutions:
+## Recent Accepted Submissions:
 """)
         for submission in submissions:
-            date = datetime.fromtimestamp(submission['timestamp']).strftime('%Y-%m-%d')
-            f.write(f"\n- {submission['title']} ({submission['lang']}) - {date}")
-            f.write(f"\n  - Runtime: {submission.get('runtime', 'N/A')}")
-            f.write(f"\n  - Memory: {submission.get('memory', 'N/A')}\n")
+            if submission.get('status_display') == 'Accepted':
+                date = datetime.fromtimestamp(submission['timestamp']).strftime('%Y-%m-%d')
+                f.write(f"\n- {submission['title']} ({submission['lang']})")
+                f.write(f"\n  - Submitted: {date}")
+                f.write(f"\n  - Runtime: {submission.get('runtime', 'N/A')}")
+                f.write(f"\n  - Memory: {submission.get('memory', 'N/A')}\n")
 
 if __name__ == "__main__":
     main()
