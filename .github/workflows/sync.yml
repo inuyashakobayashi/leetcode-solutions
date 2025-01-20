@@ -1,5 +1,4 @@
 name: Sync LeetCode Solutions
-
 on:
   push:
     branches: [main]
@@ -10,30 +9,29 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 1
           token: ${{ secrets.PAT }}
-
+          
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.x"
-
+          
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
-
+          
       - name: Sync LeetCode submissions
         env:
           LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
           LEETCODE_COOKIE: ${{ secrets.LEETCODE_COOKIE }}
         run: |
           python sync_leetcode.py
-
+          
       - name: Commit and push changes
         env:
           PAT: ${{ secrets.PAT }}
@@ -41,6 +39,14 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git remote set-url origin https://x-access-token:${PAT}@github.com/${{ github.repository }}
-          git add leetcode_solutions/
-          git commit -m "Update LeetCode solutions" || echo "No changes to commit"
-          git push
+          
+          # Prüfe, ob das Verzeichnis existiert
+          if [ -d "leetcode_solutions" ]; then
+            git add leetcode_solutions/
+            git commit -m "Update LeetCode solutions" || echo "No changes to commit"
+            git pull origin main --rebase  # Hole und integriere Remote-Änderungen
+            git push origin main
+          else
+            echo "leetcode_solutions directory not found"
+            exit 1
+          fi
